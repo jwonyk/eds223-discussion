@@ -1,0 +1,45 @@
+---
+title: "wk2"
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(sf)
+library(tmap) 
+```
+
+```{r}
+colombia <- st_read(here::here("data", "Colombia", "Colombia.shp"))
+roads <- st_read(here::here("data", "RDLINE_colombia", "RDLINE_colombia.shp"))
+aves <- read_csv(here::here("data", "dataves.csv")) |> 
+  as_tibble() |> 
+  rename(long = decimal_longitude,
+         lat = decimal_latitude)  |> 
+  st_as_sf(coords = c("long", "lat"), crs = 4326)
+```
+
+```{r}
+class(colombia)
+class(roads)
+class(aves)
+
+unique(st_geometry_type(colombia))
+unique(st_geometry_type(roads))
+unique(st_geometry_type(aves))
+```
+
+```{r}
+colombia_andean <- colombia |>
+  filter(N1_MacroBi == "Andean")
+```
+
+```{r}
+tm_shape(colombia_andean) +
+  tm_polygons()
+```
+
+```{r}
+
+```
+

@@ -1,0 +1,49 @@
+---
+title: "wk0"
+format: html
+execute:
+  warning: false
+  message: false
+  # echo: false
+---
+
+```{r}
+# Load packages
+library(here)
+library(janitor)
+library(tidyverse)
+library(sf)
+library(kableExtra)
+
+gdw_df <- read_csv(here("data", "gdw.csv")) %>% 
+  clean_names()
+```
+
+```{r}
+head(gdw_df, n = 10) %>% 
+  kable()
+
+tail(gdw_df, n = 10) %>% 
+  kable()
+```
+
+```{r}
+country_df <- gdw_df[, "country"]
+country_vec <- gdw_df[["country"]]
+
+sub_dam <- gdw_df %>% 
+  group_by(dam_type) %>% 
+  summarise(count = n()) %>% 
+  ungroup()
+
+sub_dam <- gdw_df %>% 
+  filter(dam_type == "Dam")
+
+gdw_df <- gdw_df |>
+  arrange(year_dam)
+```
+
+```{r}
+dam_hgt_m 
+```
+

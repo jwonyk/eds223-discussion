@@ -1,0 +1,79 @@
+---
+title: "wk3"
+format: html
+---
+
+```{r}
+#| message: false
+#| warning: false
+library(here)
+library(tidyverse)
+library(sf)
+library(tmap)
+```
+
+```{r}
+#| message: false
+#| warning: false
+sb_protected_areas <- st_read(here("wk3_files", "data", "cpad_super_units_sb.shp")) %>%  
+  st_transform("ESRI:102009")
+
+sb_city_boundaries <- st_read(here("wk3_files", "data", "sb_city_boundaries_2003.shp")) %>% 
+  st_transform("ESRI:102009")
+
+sb_county_boundary <- st_read(here("wk3_files", "data", "sb_county_boundary_2020.shp")) %>% 
+  st_transform("ESRI:102009")
+
+aves <- st_read(here("wk3_files", "data", "aves_observations_2020_2024.shp")) %>% 
+  st_transform("ESRI:102009")
+```
+
+```{r}
+sb_spatial_subset <- sb_protected_areas[aves, ]
+  
+nrow(sb_spatial_subset)
+```
+
+```{r}
+tm_shape(sb_county_boundary) +
+  tm_fill() +
+tm_shape(sb_protected_areas) +
+  tm_borders(lwd = 1, col = "lightpink") +
+  tm_fill(col = "lightpink", alpha = 0.2) +
+tm_shape(sb_spatial_subset) +
+  tm_dots(col = "lightgrey")
+```
+
+```{r}
+sb_spatial_join <- st_join(aves, sb_protected_areas) 
+
+nrow(sb_spatial_join)
+```
+
+```{r}
+tm_shape(sb_county_boundary) +
+  tm_fill() +
+tm_shape(sb_protected_areas) +
+  tm_borders(lwd = 1, col = "lightgreen") +
+  tm_fill(col = "lightgreen", alpha = 0.2) +
+tm_shape(sb_spatial_join) +
+  tm_dots(col = "lightgrey")
+```
+
+```{r}
+st_crs(sb_protected_areas)$units
+spatial_buffer_5km <- st_buffer(sb_protected_areas, dist = 5000)
+buffer_subset <- spatial_buffer_5km[aves, ]
+nrow(buffer_subset)
+```
+
+```{r}
+tm_shape(sb_county_boundary) +
+  tm_fill() +
+tm_shape(sb_protected_areas) +
+  tm_borders(lwd = 1, col = "#fb8500") +
+  tm_fill(col = "#fb8500", alpha = 0.2) +
+tm_shape(aves_buffer_subset) +
+  tm_dots(col = "#023047")
+```
+

@@ -1,0 +1,196 @@
+---
+title: "wk7"
+format: html
+---
+
+```{r}
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library(sf)
+library(terra)
+library(tmap)
+library(here)
+library(patchwork)
+```
+
+```{r}
+magpie <- read_csv(here("data", "magpie_obvs.csv"))
+tule_elk <- read_csv(here("data", "tule_elk_obvs.csv"))
+
+bioclim_dir <- here::here("data", "climate", "wc2.1_2.5m")
+bioclim <- list.files(bioclim_dir, pattern = glob2rx("*.tif$"), full.names = TRUE)
+bioclim_sort <- bioclim[
+# Sort filepaths based on numeric suffix
+# Extract numeric suffix of filenames and convert to numeric
+  order(as.numeric(gsub(".*_(\\d+)\\.tif$", "\\1", bioclim)))]
+bioclim_rast <- rast(bioclim_sort)
+```
+
+```{r}
+variables <- c("annualMeanTemp", "meanDiurnalRange", "isothermality", 
+               "tempSeasonality", "maxTempWarmMonth", "maxTempColdMonth", 
+               "tempAnnualRange", "meanTempWetQ", "meanTempDryQ", 
+               "meanTempWarmQ", "meanTempColdQ", "annualPrecip", 
+               "precipWetMonth", "precipDryMonth", "precipSeasonality", 
+               "precipWetQ", "precipDryQ", "precipWarmQ", "precipColdQ")
+
+names(bioclim_rast) <- variables
+```
+
+```{r}
+magpie_sf <- magpie  %>%  
+  rename(long = longitude,
+         lat = latitude) %>% 
+  drop_na(long, lat) %>% 
+  st_as_sf(coords = c("long", "lat"), crs = 4326)
+
+magpie_bbox <- st_bbox(magpie_sf)
+bioclim_crop <- crop(bioclim_rast, magpie_bbox)
+```
+
+```{r}
+bioClim_pts <- as_tibble(terra::extract(bioclim_crop, magpie_sf))
+```
+
+```{r}
+random_pts <- spatSample(bioclim_crop[["annualMeanTemp"]],
+                         na.rm = TRUE,
+                         size = (nrow(magpie) * 2),
+                         as.points = TRUE) %>%
+  st_as_sf()
+
+bioClim_random_pts <- as_tibble(extract(bioclim_crop, random_pts))
+```
+
+```{r}
+# Plot species climate niche and background climate (temperature vs. precipitation)
+map_1 <- tm_shape(bioclim_crop[["annualMeanTemp"]]) +
+  tm_raster(col.scale = tm_scale_continuous(values = "-RdYlBu"), 
+            col.legend = tm_legend(title = "Annual mean temperature")) +
+tm_shape(magpie_sf) +
+  tm_dots(fill = "#3a5a40", size = 0.15) +
+  tm_layout(legend.position = tm_pos_in("center", "bottom"),
+            legend.orientation = "landscape",
+            legend.bg.color = "white")
+
+map_2 <- tm_shape(bioclim_crop[["annualPrecip"]]) +
+  tm_raster(col.scale = tm_scale_continuous(values = "Blues"), 
+            col.legend = tm_legend(title = "Annual precipitation")) +
+  tm_shape(magpie_sf) +
+  tm_dots(fill = "#3a5a40", size = 0.15) +
+  tm_layout(legend.position = tm_pos_in("center", "bottom"),
+            legend.orientation = "landscape",
+            legend.bg.color = "white")
+
+tmap_arrange(map_1, map_2)
+```
+
+```{r}
+plot_1 <- ggplot(data = bioClim_pts, 
+                 aes(x = annualPrecip, y = annualMeanTemp)) +
+  geom_point(shape = 16, color = "#3a5a40") +
+  labs(x = "Annual precipitation",
+       y = "Annual mean temperature", 
+       title = "Species climate niche") +
+  theme_bw()
+
+plot_2 <- ggplot(data = bioClim_random_pts, 
+                 aes(x = annualPrecip, y = annualMeanTemp)) +
+  geom_point(shape = 16) +
+  labs(x = "Annual precipitation",
+       y = element_blank(), 
+       title = "Background climate") +
+  theme_bw()
+
+(plot_1 + plot_2)
+```
+
+```{r}
+climate_envelope <- function(clim_rast, clim_var1, 
+                             clim_var2, occurences, species_name) {
+   
+  species_name_lower <- species_name %>% 
+    str_to_lower() %>% 
+    str_replace_all(" ", "_")
+  
+  occurences_sf <- occurences %>% 
+    rename(long = longitude,
+           lat = latitude) %>% 
+    drop_na(long) %>% 
+    st_as_sf(coords = c("long", "lat"), crs = 4326)
+  
+  occurences_bbox <- st_bbox(occurences_sf)
+  
+  clim_crop <- crop(clim_rast, occurences_bbox)
+  
+  clim_pts <- as_tibble(extract(clim_crop, occurences_sf))
+  
+  random_pts <- spatSample(clim_rast[[clim_var1]],
+                           na.rm = TRUE,
+                           size = (nrow(occurences) * 2),
+                           as.points = TRUE) %>%
+    st_as_sf()
+
+  clim_random_pts <- as_tibble(terra::extract(clim_crop, random_pts))
+  
+  map_1 <- tm_shape(clim_crop[[clim_var1]]) +
+    tm_raster(col.scale = tm_scale_continuous(values = "blue")) +
+    tm_shape(occurences_sf) +
+    tm_dots(fill = "#3a5a40", size = 0.15) +
+    tm_layout(legend.position = tm_pos_in("center", "bottom"),
+              legend.orientation = "landscape",
+              legend.bg.color = "white")
+
+  map_2 <- tm_shape(clim_crop[[clim_var2]]) +
+    tm_raster(col.scale = tm_scale_continuous(values = "-RdYlBu")) +
+    tm_shape(occurences_sf) +
+    tm_dots(fill = "#3a5a40", size = 0.15) +
+    tm_layout(legend.position = tm_pos_in("center", "bottom"),
+              legend.orientation = "landscape",
+              legend.bg.color = "white")
+  
+  plot_1 <- ggplot(data = clim_pts, 
+                   aes_string(x = clim_var1, y = clim_var2)) +
+    geom_point(shape = 16, color = "#3a5a40") +
+    labs(title = paste("Species climate niche of", 
+                       str_to_sentence(species_name))) +
+    theme_bw()
+  
+  plot_2 <- ggplot(data = clim_random_pts, 
+                   aes_string(x = clim_var1, y = clim_var2)) +
+    geom_point(shape = 16) +
+    labs(y = element_blank(), 
+         title = paste("Background climate of", 
+                       str_to_sentence(species_name))) + 
+    theme_bw()
+  
+  assign(paste0(species_name_lower, "_map_1"), map_1, envir = .GlobalEnv)
+  assign(paste0(species_name_lower, "_map_2"), map_2, envir = .GlobalEnv)
+  assign(paste0(species_name_lower, "_plot_1"), plot_1, envir = .GlobalEnv)
+  assign(paste0(species_name_lower, "_plot_2"), plot_2, envir = .GlobalEnv)}
+```
+
+```{r}
+climate_envelope(clim_rast = bioclim_rast,
+                 clim_var1 = "annualPrecip",
+                 clim_var2 = "annualMeanTemp",
+                 occurences = tule_elk, 
+                 species_name = "Tule Elk")
+
+tule_elk_map_1
+```
+
+```{r}
+tule_elk_map_2
+```
+
+```{r}
+tule_elk_plot_1
+```
+
+```{r}
+tule_elk_plot_2
+```
+
