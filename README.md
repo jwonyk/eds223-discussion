@@ -1,8 +1,8 @@
-# EDS 223 In-Class Repository 
+# EDS 223 In-Class Repository
 
 This repository hosts all the work completed by Jay Kim during the EDS 223 - *Geospatial Analysis & Remote Sensing* discussion.
 
-## Course Information 
+## Course Information
 
 **Course Title**: [EDS 223 - Geospatial Analysis & Remote Sensing](https://bren.ucsb.edu/courses/eds-223)
 

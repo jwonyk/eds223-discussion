@@ -1,0 +1,144 @@
+---
+title: "wk8"
+format: html
+---
+
+```{r}
+#| warning: false
+#| message: false
+
+library(terra)
+library(sf)
+library(tidyverse)
+library(here)
+library(tmap)
+```
+
+```{r}
+landsat_20180612 <- rast(here("data", "wk8_data", "landsat_20180612.tif"))
+names(landsat_20180612) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+ndvi_20180612 <- lapp(landsat_20180612[[c(4, 3)]], fun = ndvi_fun)
+```
+
+```{r}
+tm_shape(ndvi_20180612) +
+  tm_raster(col.legend  = tm_legend("NDVI")) +
+  tm_layout(legend.outside.position = "right")
+```
+
+```{r}
+landsat_20180612 <- rast(here("data", "wk8_data", "landsat_20180612.tif"))
+landsat_20180815 <- rast(here("data", "wk8_data", "landsat_20180815.tif"))
+landsat_20181018 <- rast(here("data", "wk8_data", "landsat_20181018.tif"))
+landsat_20181103 <- rast(here("data", "wk8_data", "landsat_20181103.tif"))
+landsat_20190122 <- rast(here("data", "wk8_data", "landsat_20190122.tif"))
+landsat_20190223 <- rast(here("data", "wk8_data", "landsat_20190223.tif"))
+landsat_20190412 <- rast(here("data", "wk8_data", "landsat_20190412.tif"))
+landsat_20190701 <- rast(here("data", "wk8_data", "landsat_20190701.tif"))
+```
+
+```{r}
+names(landsat_20180612) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+names(landsat_20180815) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+names(landsat_20181018) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+names(landsat_20181103) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+names(landsat_20190122) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+names(landsat_20190223) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+names(landsat_20190412) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+names(landsat_20190701) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+```
+
+```{r}
+ndvi_20180612 <- lapp(landsat_20180612[[c(4, 3)]], fun = ndvi_fun)
+ndvi_20180815 <- lapp(landsat_20180815[[c(4, 3)]], fun = ndvi_fun)
+ndvi_20181018 <- lapp(landsat_20181018[[c(4, 3)]], fun = ndvi_fun)
+ndvi_20181103 <- lapp(landsat_20181103[[c(4, 3)]], fun = ndvi_fun)
+ndvi_20190122 <- lapp(landsat_20190122[[c(4, 3)]], fun = ndvi_fun)
+ndvi_20190223 <- lapp(landsat_20190223[[c(4, 3)]], fun = ndvi_fun)
+ndvi_20190412 <- lapp(landsat_20190412[[c(4, 3)]], fun = ndvi_fun)
+ndvi_20190701 <- lapp(landsat_20190701[[c(4, 3)]], fun = ndvi_fun)
+```
+
+```{r}
+all_ndvi <- c(ndvi_20180612, 
+              ndvi_20180815, 
+              ndvi_20181018, 
+              ndvi_20181103, 
+              ndvi_20190122, 
+              ndvi_20190223, 
+              ndvi_20190412, 
+              ndvi_20190701)
+```
+
+```{r}
+names(all_ndvi) <- c("2018-06-12", 
+                     "2018-08-15", 
+                     "2018-10-18", 
+                     "2018-11-03", 
+                     "2019-01-22", 
+                     "2019-02-23", 
+                     "2019-04-12", 
+                     "2019-07-01")
+```
+
+```{r}
+files <- list.files(
+  here("data", "wk8_data"), pattern = "*.tif$",
+  full.names = TRUE)
+```
+
+```{r}
+ndvi_fun <- function(nir, red) {
+  
+  (nir - red) / (nir + red)
+  
+}
+```
+
+```{r}
+create_ndvi_layer <- function(i) {
+  
+  landsat <- rast(files[i])
+  names(landsat) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+  ndvi <- lapp(landsat[[c(4, 3)]], fun = ndvi_fun)
+  
+  return(ndvi)
+  
+}
+```
+
+```{r}
+all_ndvi <- c(create_ndvi_layer(1), 
+              create_ndvi_layer(2), 
+              create_ndvi_layer(3), 
+              create_ndvi_layer(4), 
+              create_ndvi_layer(5), 
+              create_ndvi_layer(6), 
+              create_ndvi_layer(7), 
+              create_ndvi_layer(8))
+
+names(all_ndvi) <- c("2018-06-12", 
+                    "2018-08-15", 
+                    "2018-10-18", 
+                    "2018-11-03", 
+                    "2019-01-22", 
+                    "2019-02-23", 
+                    "2019-04-12", 
+                    "2019-07-01")
+```
+
+```{r}
+sites <- st_read(here("data", "wk8_data", "study_sites.shp"))
+```
+
+```{r}
+veg_zones <- rasterize(sites, all_ndvi, field = "study_site")
+
+sites_ndvi <- terra::zonal(all_ndvi, veg_zones, fun = "mean")
+
+sites_annotated <- cbind(sites, sites_ndvi)
+
+sites_ndvi <- terra::extract(all_ndvi, sites, fun = "mean")
+
+sites_annotated <- cbind(sites, sites_ndvi)
+```
